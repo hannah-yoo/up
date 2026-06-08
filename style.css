@@ -1,0 +1,120 @@
+/* ===== RESET & BASE ===== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1e1e1e; /* Dark theme outside the poster to emphasize the poster */
+  font-family: 'Noto Sans KR', sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ===== POSTER CONTAINER ===== */
+.poster-container {
+  position: relative;
+  width: 1512px;
+  height: 982px;
+  background: #ffffff; /* Solid white background as designed in Figma */
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  transform: translate(0, 0) scale(var(--scale, 1));
+  transform-origin: center center;
+  flex-shrink: 0;
+}
+
+/* ===== BACKGROUND TITLE (GIANT CHINESE CHARACTER) ===== */
+.bg-title {
+  position: absolute;
+  left: 50%;
+  top: 77.6px;
+  transform: translateX(-50%);
+  font-family: 'Dela Gothic One', cursive;
+  font-size: 800px;
+  line-height: 960px;
+  color: #000000;
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+}
+
+/* ===== PAPER CANVAS ===== */
+#paperCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  cursor: grab;
+}
+#paperCanvas:active {
+  cursor: grabbing;
+}
+
+/* ===== CIRCLES ===== */
+.circles {
+  position: absolute;
+  top: 742px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 40px;
+  z-index: 20;
+  pointer-events: none;
+  width: 560px;
+  height: 160px;
+}
+
+.circle {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+}
+
+.circle.red    { background: #ff0000; }
+.circle.yellow { background: #fffa00; }
+.circle.blue   { background: #4a5bba; }
+
+/* ===== MIC HINT ===== */
+.mic-hint {
+  position: fixed;
+  bottom: 3vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 100px;
+  padding: 8px 20px;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.78rem;
+  color: rgba(0,0,0,0.7);
+  letter-spacing: 0.02em;
+  transition: opacity 0.8s ease;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.mic-hint.hidden {
+  opacity: 0;
+}
+
+.mic-icon {
+  font-size: 1rem;
+  animation: pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}

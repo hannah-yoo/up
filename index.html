@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UP — 유해나</title>
+  <meta name="description" content="조각 작품 'UP'에 대한 웹 포스터. 지게와 업을 탐구하는 인터랙티브 웹." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Noto+Sans+KR:wght@300;400;500&family=Noto+Serif+KR:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="poster-container">
+    <!-- Background Title (giant Chinese character '業') -->
+    <div class="bg-title" aria-hidden="true">業</div>
+
+    <!-- Rice paper columns — rendered on canvas overlay -->
+    <canvas id="paperCanvas" aria-label="인터랙티브 한지 컬럼"></canvas>
+
+    <!-- Bottom circles -->
+    <div class="circles" aria-hidden="true">
+      <div class="circle red"></div>
+      <div class="circle yellow"></div>
+      <div class="circle blue"></div>
+    </div>
+  </div>
+
+  <!-- Mic permission hint (stays fixed to viewport for accessibility) -->
+  <div id="micHint" class="mic-hint" role="status" aria-live="polite">
+    <span class="mic-icon">🎙</span>
+    <span class="mic-text">마이크에 바람을 불어보세요</span>
+  </div>
+
+  <script src="paper.js"></script>
+</body>
+
+</html>
