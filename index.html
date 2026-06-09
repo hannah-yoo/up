@@ -9,31 +9,94 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Noto+Sans+KR:wght@300;400;500&family=Noto+Serif+KR:wght@300;400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Noto+Sans+KR:wght@300;400;500&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
   <div class="poster-container">
-    <!-- Background Title (giant Chinese character '業') -->
-    <div class="bg-title" aria-hidden="true">業</div>
 
-    <!-- Rice paper columns — rendered on canvas overlay -->
+    <!-- Layer 0: Background color (CSS background) -->
+
+    <!-- Layer 1: 업(業) title — solid black initially, turns to 3D engraved inner shadow on game start -->
+    <svg class="bg-title solid" id="bgTitleSvg" viewBox="0 0 700 840" aria-hidden="true">
+      <defs>
+        <!-- Inset/engraved inner shadow filter -->
+        <filter id="inset-shadow" x="-10%" y="-10%" width="120%" height="120%">
+          <feOffset dx="2" dy="5"/>
+          <feGaussianBlur stdDeviation="4" result="offset-blur"/>
+          <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse"/>
+          <feFlood flood-color="#000000" flood-opacity="0.4" result="color"/>
+          <feComposite operator="in" in="color" in2="inverse" result="shadow"/>
+          <feComposite operator="over" in="shadow" in2="SourceGraphic"/>
+        </filter>
+      </defs>
+      <text x="350" y="650" text-anchor="middle" id="bgTitleText">業</text>
+    </svg>
+
+    <!-- Layer 2: Static decorative assets — always visible below rice paper -->
+    <div class="assets-layer" aria-hidden="true" id="assetsLayer">
+      <img class="asset paper-strip-1" src="assets/paper strip 1.webp" alt="" />
+      <img class="asset flower-red"    src="assets/flower_red.webp"    alt="" />
+      <img class="asset flower-yellow" src="assets/flower_yellow.webp" alt="" />
+      <img class="asset flower-blue"   src="assets/flower_blue.webp"   alt="" />
+      <img class="asset paper-strip-2" src="assets/paper strip 2.webp" alt="" />
+    </div>
+
+    <!-- Layer 3: Rice paper cloth simulation canvas (burns away on click) -->
     <canvas id="paperCanvas" aria-label="인터랙티브 한지 컬럼"></canvas>
 
-    <!-- Bottom circles -->
-    <div class="circles" aria-hidden="true">
-      <div class="circle red"></div>
-      <div class="circle yellow"></div>
-      <div class="circle blue"></div>
+  </div>
+
+  <!-- Balance Gauge (visible during sticker stacking game) -->
+  <div id="balanceGauge" class="balance-gauge hidden">
+    <div class="gauge-label">무게중심 (Balance Center)</div>
+    <div class="gauge-bar-container">
+      <div class="gauge-bar">
+        <div id="gaugePointer" class="gauge-pointer"></div>
+      </div>
+      <div class="gauge-indicators">
+        <span>L</span>
+        <span>SAFE</span>
+        <span>R</span>
+      </div>
     </div>
   </div>
 
-  <!-- Mic permission hint (stays fixed to viewport for accessibility) -->
-  <div id="micHint" class="mic-hint" role="status" aria-live="polite">
-    <span class="mic-icon">🎙</span>
-    <span class="mic-text">마이크에 바람을 불어보세요</span>
+  <!-- Sticker Selection Tray (appears at the bottom after burning columns) -->
+  <div id="stickerTray" class="sticker-tray hidden">
+    <div class="tray-title">상여 장식을 클릭하여 업(業) 위에 스티커를 쌓으세요</div>
+    <div class="tray-items">
+      <div class="tray-item" data-type="strip1" title="지방지 띠 1">
+        <img src="assets/paper strip 1.webp" alt="" />
+      </div>
+      <div class="tray-item" data-type="red" title="붉은 꽃">
+        <img src="assets/flower_red.webp" alt="" />
+      </div>
+      <div class="tray-item" data-type="yellow" title="노란 꽃">
+        <img src="assets/flower_yellow.webp" alt="" />
+      </div>
+      <div class="tray-item" data-type="blue" title="푸른 꽃">
+        <img src="assets/flower_blue.webp" alt="" />
+      </div>
+      <div class="tray-item" data-type="strip2" title="지방지 띠 2">
+        <img src="assets/paper strip 2.webp" alt="" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Print Overlay -->
+  <div id="gameOverOverlay" class="game-over-overlay hidden">
+    <div class="game-over-box">
+      <h2>業 무너짐 (Karma Collapsed)</h2>
+      <p>당신의 업보가 무게중심을 잃고 무너져 내렸습니다.</p>
+      <p class="sub-text">이 상태의 예술 포스터를 출력하시겠습니까?</p>
+      <div class="overlay-buttons">
+        <button id="printBtn" class="btn btn-print">포스터 출력하기 (A4 Print)</button>
+        <button id="resetBtn" class="btn btn-reset">다시 쌓기 (Restart)</button>
+      </div>
+    </div>
   </div>
 
   <script src="paper.js"></script>

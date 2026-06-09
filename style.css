@@ -9,7 +9,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #1e1e1e; /* Dark theme outside the poster to emphasize the poster */
+  background: #1e1e1e;
   font-family: 'Noto Sans KR', sans-serif;
   display: flex;
   justify-content: center;
@@ -17,104 +17,360 @@ html, body {
 }
 
 /* ===== POSTER CONTAINER ===== */
+/*
+  Fixed 1512×982 design canvas, scaled to fit viewport.
+  All child positions are absolute in this coordinate space.
+*/
 .poster-container {
   position: relative;
   width: 1512px;
   height: 982px;
-  background: #ffffff; /* Solid white background as designed in Figma */
+  /* Figma frame background: warm cream rgb(255,252,248) */
+  background: rgb(255, 252, 249);
   overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-  transform: translate(0, 0) scale(var(--scale, 1));
+  box-shadow: 0 10px 60px rgba(0, 0, 0, 0.5);
+  transform: scale(var(--scale, 1));
   transform-origin: center center;
   flex-shrink: 0;
 }
 
-/* ===== BACKGROUND TITLE (GIANT CHINESE CHARACTER) ===== */
+/* ===== LAYER 1: BACKGROUND TITLE 業 ===== */
 .bg-title {
   position: absolute;
-  left: 50%;
-  top: 77.6px;
-  transform: translateX(-50%);
-  font-family: 'Dela Gothic One', cursive;
-  font-size: 800px;
-  line-height: 960px;
-  color: #000000;
+  left: 406px;
+  top: -108px;
+  width: 700px;
+  height: 840px;
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
   user-select: none;
 }
 
-/* ===== PAPER CANVAS ===== */
+#bgTitleText {
+  font-family: 'Dela Gothic One', cursive;
+  font-size: 600px;
+  text-anchor: middle;
+  transition: fill 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#bgTitleSvg.solid #bgTitleText {
+  fill: #2c2825;
+}
+
+#bgTitleSvg.engraved #bgTitleText {
+  fill: rgb(255, 252, 249);
+  filter: url(#inset-shadow);
+}
+
+/* ===== LAYER 2: DECORATIVE ASSETS ===== */
+/*
+  Always visible — sit behind the rice paper, revealed as it burns away.
+  Positions from Figma (frame-relative):
+*/
+.assets-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.asset {
+  position: absolute;
+  object-fit: contain;
+}
+
+/* paper strip 1: left=84px top=722px width=277px height=183px */
+.paper-strip-1 {
+  left: 84px;
+  top: 722px;
+  width: 277px;
+  height: 183px;
+}
+
+/* flower_red: left=361px top=737px width=251px height=165px */
+.flower-red {
+  left: 361px;
+  top: 737px;
+  width: 251px;
+  height: 165px;
+}
+
+/* flower_yellow: left=635px top=750px width=230px height=152px */
+.flower-yellow {
+  left: 635px;
+  top: 750px;
+  width: 230px;
+  height: 152px;
+}
+
+/* flower_blue: left=865px top=722px width=302px height=199px */
+.flower-blue {
+  left: 865px;
+  top: 722px;
+  width: 302px;
+  height: 199px;
+}
+
+/* paper strip 2: left=1094px top=712px width=382px height=252px */
+.paper-strip-2 {
+  left: 1094px;
+  top: 712px;
+  width: 382px;
+  height: 252px;
+}
+
+/* ===== LAYER 3: RICE PAPER CANVAS ===== */
 #paperCanvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   z-index: 10;
-  cursor: grab;
-}
-#paperCanvas:active {
-  cursor: grabbing;
+  cursor: default;
 }
 
-/* ===== CIRCLES ===== */
-.circles {
-  position: absolute;
-  top: 742px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 40px;
-  z-index: 20;
-  pointer-events: none;
-  width: 560px;
-  height: 160px;
-}
-
-.circle {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-}
-
-.circle.red    { background: #ff0000; }
-.circle.yellow { background: #fffa00; }
-.circle.blue   { background: #4a5bba; }
-
-/* ===== MIC HINT ===== */
-.mic-hint {
+/* ===== BALANCE GAUGE ===== */
+.balance-gauge {
   position: fixed;
-  bottom: 3vh;
+  top: 24px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 30;
+  width: 340px;
+  background: rgba(30, 30, 30, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 12px 18px;
+  z-index: 100;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(0,0,0,0.12);
-  border-radius: 100px;
-  padding: 8px 20px;
-  font-family: 'Noto Sans KR', sans-serif;
-  font-size: 0.78rem;
-  color: rgba(0,0,0,0.7);
-  letter-spacing: 0.02em;
-  transition: opacity 0.8s ease;
-  pointer-events: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
-
-.mic-hint.hidden {
+.balance-gauge.hidden {
   opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -20px);
+}
+.gauge-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+.gauge-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gauge-bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  overflow: visible;
+}
+.gauge-pointer {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  background: #e2583e;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 8px rgba(226, 88, 62, 0.8);
+  transition: left 0.1s ease-out;
+}
+.gauge-indicators {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.05em;
+  padding: 0 4px;
 }
 
-.mic-icon {
-  font-size: 1rem;
-  animation: pulse 2.5s ease-in-out infinite;
+/* ===== STICKER SELECTION TRAY ===== */
+.sticker-tray {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 580px;
+  background: rgba(30, 30, 30, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 16px;
+  z-index: 100;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.sticker-tray.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 20px);
+}
+.tray-title {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.03em;
+}
+.tray-items {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+.tray-item {
+  width: 80px;
+  height: 80px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: grab;
+  transition: background 0.2s, transform 0.2s, border-color 0.2s;
+  user-select: none;
+}
+.tray-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-4px) scale(1.05);
+}
+.tray-item img {
+  max-width: 85%;
+  max-height: 85%;
+  object-fit: contain;
+  pointer-events: none;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.5; transform: scale(0.85); }
+/* ===== GAME OVER OVERLAY ===== */
+.game-over-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  transition: opacity 0.4s ease;
+}
+.game-over-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.game-over-box {
+  background: #1c1a19;
+  border: 1px solid #c2b5a3;
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  max-width: 480px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes scaleUp {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.game-over-box h2 {
+  font-size: 24px;
+  font-weight: 500;
+  color: #e2583e;
+  margin-bottom: 16px;
+  letter-spacing: 0.02em;
+}
+.game-over-box p {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+.game-over-box .sub-text {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+.overlay-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.btn {
+  width: 100%;
+  padding: 14px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s, transform 0.1s;
+  outline: none;
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btn-print {
+  background: #c2b5a3;
+  color: #1c1a19;
+}
+.btn-print:hover {
+  background: #dcd3c5;
+}
+.btn-reset {
+  background: transparent;
+  color: #c2b5a3;
+  border: 1px solid #c2b5a3;
+}
+.btn-reset:hover {
+  background: rgba(194, 181, 163, 0.1);
+}
+
+/* ===== PRINT STYLES (A4 LANDSCAPE) ===== */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+  html, body {
+    background: #ffffff !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .balance-gauge, .sticker-tray, .game-over-overlay, .scroll-hint {
+    display: none !important;
+  }
+  .poster-container {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 1512px !important;
+    height: 982px !important;
+    transform: scale(calc(297mm / 1512px)) !important;
+    transform-origin: top left !important;
+    box-shadow: none !important;
+    background: rgb(255, 252, 249) !important;
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
 }
