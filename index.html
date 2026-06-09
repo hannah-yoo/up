@@ -12,6 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Noto+Sans+KR:wght@300;400;500&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 
 <body>
@@ -47,56 +48,15 @@
     <!-- Layer 3: Rice paper cloth simulation canvas (burns away on click) -->
     <canvas id="paperCanvas" aria-label="인터랙티브 한지 컬럼"></canvas>
 
-  </div>
-
-  <!-- Balance Gauge (visible during sticker stacking game) -->
-  <div id="balanceGauge" class="balance-gauge hidden">
-    <div class="gauge-label">무게중심 (Balance Center)</div>
-    <div class="gauge-bar-container">
-      <div class="gauge-bar">
-        <div id="gaugePointer" class="gauge-pointer"></div>
-      </div>
-      <div class="gauge-indicators">
-        <span>L</span>
-        <span>SAFE</span>
-        <span>R</span>
+    <!-- QR Code & Info Header (visible only on print) -->
+    <div class="print-header">
+      <div class="print-qr-box" id="qrContainer"></div>
+      <div class="print-qr-text">
+        <div class="print-text-ko">직접 업보 쌓아보기</div>
+        <div class="print-text-en">Build your own UP here</div>
       </div>
     </div>
-  </div>
 
-  <!-- Sticker Selection Tray (appears at the bottom after burning columns) -->
-  <div id="stickerTray" class="sticker-tray hidden">
-    <div class="tray-title">상여 장식을 클릭하여 업(業) 위에 스티커를 쌓으세요</div>
-    <div class="tray-items">
-      <div class="tray-item" data-type="strip1" title="지방지 띠 1">
-        <img src="assets/paper strip 1.webp" alt="" />
-      </div>
-      <div class="tray-item" data-type="red" title="붉은 꽃">
-        <img src="assets/flower_red.webp" alt="" />
-      </div>
-      <div class="tray-item" data-type="yellow" title="노란 꽃">
-        <img src="assets/flower_yellow.webp" alt="" />
-      </div>
-      <div class="tray-item" data-type="blue" title="푸른 꽃">
-        <img src="assets/flower_blue.webp" alt="" />
-      </div>
-      <div class="tray-item" data-type="strip2" title="지방지 띠 2">
-        <img src="assets/paper strip 2.webp" alt="" />
-      </div>
-    </div>
-  </div>
-
-  <!-- Game Over Print Overlay -->
-  <div id="gameOverOverlay" class="game-over-overlay hidden">
-    <div class="game-over-box">
-      <h2>業 무너짐 (Karma Collapsed)</h2>
-      <p>당신의 업보가 무게중심을 잃고 무너져 내렸습니다.</p>
-      <p class="sub-text">이 상태의 예술 포스터를 출력하시겠습니까?</p>
-      <div class="overlay-buttons">
-        <button id="printBtn" class="btn btn-print">포스터 출력하기 (A4 Print)</button>
-        <button id="resetBtn" class="btn btn-reset">다시 쌓기 (Restart)</button>
-      </div>
-    </div>
   </div>
 
   <script src="paper.js"></script>

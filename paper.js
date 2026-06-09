@@ -3,7 +3,7 @@
  *
  * Layers:
  *   SVG layer 1:    '業' title — solid black, transitions to 3D engraved inner shadow on game start.
- *   Assets layer 2: decorative assets (flowers, paper strips) — always visible.
+ *   Assets layer 2: decorative assets (flowers, paper strips) — always visible; acts as palette.
  *   Canvas layer 3: Jibang cloth columns — burn away on click; then becomes the stacking surface.
  */
 
@@ -33,10 +33,17 @@ resize();
 // ─────────────────────────────────────────────
 let gameStarted       = false;
 let isCollapsing      = false;
-let gameOverShown     = false;
+let gameOverResetReady = false;
+let hasPrinted        = false;
 let collapseTimer     = 0;
 let stickers          = [];
 let activeDragSticker = null;
+let lastSproutTime    = 0;
+
+let containerAngle         = 0;
+let containerY             = 0;
+let containerVy            = 0;
+let containerAngleVelocity = 0;
 
 // ─────────────────────────────────────────────
 //  Preloaded Sticker Images
@@ -54,12 +61,13 @@ stickerImages.yellow.src = 'assets/flower_yellow.webp';
 stickerImages.blue.src   = 'assets/flower_blue.webp';
 stickerImages.strip2.src = 'assets/paper strip 2.webp';
 
+// 70% scale size based on Figma widths
 const stickerBaseWidths = {
-  strip1: 277,
-  red: 251,
-  yellow: 230,
-  blue: 302,
-  strip2: 382
+  strip1: 277 * 0.7,
+  red: 251 * 0.7,
+  yellow: 230 * 0.7,
+  blue: 302 * 0.7,
+  strip2: 382 * 0.7
 };
 
 // ─────────────────────────────────────────────
@@ -266,6 +274,44 @@ function buildTextTexture(text, colW, colH) {
   octx.fillStyle = '#000000';
   drawParagraph(octx, text, px, py, maxW, lineH);
 
+  // Creases & Fold wrinkles to add realistic paper texture and thickness
+  const rngFold = mulberry32(0x1234567);
+  for (let i = 0; i < 7; i++) {
+    const x1 = rngFold() * colW;
+    const y1 = 0;
+    const x2 = x1 + (rngFold() * 120 - 60);
+    const y2 = colH;
+    
+    // Shadow line
+    octx.beginPath();
+    octx.moveTo(x1, y1);
+    octx.lineTo(x2, y2);
+    octx.strokeStyle = `rgba(0,0,0,${rngFold() * 0.03 + 0.01})`;
+    octx.lineWidth = rngFold() * 3 + 1;
+    octx.stroke();
+    
+    // Highlight line
+    octx.beginPath();
+    octx.moveTo(x1 + 1.5, y1);
+    octx.lineTo(x2 + 1.5, y2);
+    octx.strokeStyle = `rgba(255,255,255,${rngFold() * 0.12 + 0.04})`;
+    octx.lineWidth = rngFold() * 2 + 1;
+    octx.stroke();
+  }
+
+  // Outer paper edge boundary stroke for thickness/presence
+  octx.beginPath();
+  octx.moveTo(0, cut);
+  octx.lineTo(cut, 0);
+  octx.lineTo(colW - cut, 0);
+  octx.lineTo(colW, cut);
+  octx.lineTo(colW, colH);
+  octx.lineTo(0, colH);
+  octx.closePath();
+  octx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+  octx.lineWidth = 2.5;
+  octx.stroke();
+
   octx.restore();
 
   return oc;
@@ -465,7 +511,14 @@ class Cloth {
       offCtx.restore();
     }
 
+    // Render columns with a 3D drop shadow onto background
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 8;
     ctx.drawImage(offCanvas, 0, 0);
+    ctx.restore();
   }
 }
 
@@ -508,20 +561,23 @@ let offLeftCtx     = null;
 let offRightCanvas = null;
 let offRightCtx    = null;
 
-const COL_W   = 315;
+// Columns are 10% narrower (315 * 0.9 = 283px) to fit longer texts dynamically
+const COL_W   = 283;
 let   COL_H   = 554; // default base height
 
-// Centering math: Total width = 315 * 2 + 12 = 642px
-// LEFT_X = (1512 - 642) / 2 = 435px
-// RIGHT_X = 435 + 315 + 12 = 762px
-const LEFT_X  = 435;
+// Centering math for width 283px with 12px gap:
+// Total width = 283 * 2 + 12 = 578px
+// LEFT_X = (1512 - 578) / 2 = 467px
+// RIGHT_X = 467 + 283 + 12 = 762px
+const LEFT_X  = 467;
 const LEFT_Y  = 79;
 const RIGHT_X = 762;
 const RIGHT_Y = 79;
 
 function buildCloths() {
-  const hLeft = measureTextHeight(TEXT_LEFT, COL_W) + 90;
-  const hRight = measureTextHeight(TEXT_RIGHT, COL_W) + 90;
+  // Bottom padding is halved (now +67 instead of +90)
+  const hLeft = measureTextHeight(TEXT_LEFT, COL_W) + 67;
+  const hRight = measureTextHeight(TEXT_RIGHT, COL_W) + 67;
   COL_H = Math.max(554, Math.ceil(Math.max(hLeft, hRight)));
 
   document.documentElement.style.setProperty('--col-h', COL_H + 'px');
@@ -551,7 +607,7 @@ const damping = 0.95; // Stiffer cloth to reduce excessive fluttering
 let idleTime  = 0;
 
 // ─────────────────────────────────────────────
-//  Mouse / touch mapping
+//  Mouse / touch mapping & Asset palette bounds
 // ─────────────────────────────────────────────
 let mouse = { x: W / 2, y: H / 2, down: false };
 
@@ -563,15 +619,28 @@ function updateMousePos(cx, cy) {
   }
 }
 
+// Detect which decorative asset is dragged from Layer 2 (Infinite source piles)
+// Positions in 1512x982 coordinate space:
+function getAssetTypeAt(mx, my) {
+  if (mx >= 84 && mx <= 361 && my >= 722 && my <= 905) return 'strip1';
+  if (mx >= 361 && mx <= 612 && my >= 737 && my <= 902) return 'red';
+  if (mx >= 635 && mx <= 865 && my >= 750 && my <= 902) return 'yellow';
+  if (mx >= 865 && mx <= 1167 && my >= 722 && my <= 921) return 'blue';
+  if (mx >= 1094 && mx <= 1476 && my >= 712 && my <= 964) return 'strip2';
+  return null;
+}
+
 function handleColumnClick(mx, my) {
   if (gameStarted) return;
 
+  let clicked = false;
   // Left column bounds check
   if (mx >= LEFT_X && mx <= LEFT_X + COL_W && my >= LEFT_Y && my <= LEFT_Y + COL_H) {
     if (!clothLeft.isBurning && !clothLeft.isFullyBurned) {
       clothLeft.isBurning = true;
       clothLeft.burnStartPoint = { x: mx, y: my };
       clothLeft.burnProgress = 0;
+      clicked = true;
     }
   }
 
@@ -581,12 +650,26 @@ function handleColumnClick(mx, my) {
       clothRight.isBurning = true;
       clothRight.burnStartPoint = { x: mx, y: my };
       clothRight.burnProgress = 0;
+      clicked = true;
     }
+  }
+
+  // Instant Game Start when both are burning
+  if (clothLeft.isBurning && clothRight.isBurning && !gameStarted) {
+    gameStarted = true;
+    // Delay engraving fade slightly (600ms) to prevent visual clutter at start
+    setTimeout(() => {
+      const bgTitleSvg = document.getElementById('bgTitleSvg');
+      if (bgTitleSvg) {
+        bgTitleSvg.classList.remove('solid');
+        bgTitleSvg.classList.add('engraved');
+      }
+    }, 600);
   }
 }
 
 // ─────────────────────────────────────────────
-//  Sticker Drag and Drop Events
+//  Sticker Drag and Drop & watering can sprout
 // ─────────────────────────────────────────────
 function startDragging(type, clientX, clientY) {
   if (!gameStarted || isCollapsing) return;
@@ -596,13 +679,12 @@ function startDragging(type, clientX, clientY) {
     x: mouse.x,
     y: mouse.y
   };
+  lastSproutTime = performance.now();
 }
 
-function dropSticker() {
-  if (!activeDragSticker) return;
-
-  const mx = activeDragSticker.x;
-  const my = activeDragSticker.y;
+function sproutSticker(type, mx, my) {
+  if (isCollapsing) return;
+  if (my > 700) return; // Ignore sprouts in the bottom tray region to avoid premature collapse
 
   // Find nearest stroke point
   let minDist = Infinity;
@@ -612,7 +694,7 @@ function dropSticker() {
     const pt = maskPoints[i];
     const dx = mx - pt.x;
     const dy = my - pt.y;
-    const dist = dx * dx + dy * dy; // Avoid Math.sqrt inside loop
+    const dist = dx * dx + dy * dy;
     if (dist < minDist) {
       minDist = dist;
       nearestPoint = pt;
@@ -623,46 +705,40 @@ function dropSticker() {
 
   // Snapping tolerance (120px)
   if (minDist <= 120 && nearestPoint) {
-    // Determine dynamic size/scale: smaller at extremities to not bleed out too far
     const distToCenter = Math.hypot(nearestPoint.x - 756, nearestPoint.y - 420);
     let targetScale = 0.7 - (distToCenter / 800) * 0.25;
     targetScale = Math.max(0.4, Math.min(0.7, targetScale));
 
     stickers.push({
-      type: activeDragSticker.type,
-      x: activeDragSticker.x, // Slide start
-      y: activeDragSticker.y,
+      type: type,
+      x: mx, 
+      y: my,
       targetX: nearestPoint.x,
       targetY: nearestPoint.y,
       scale: targetScale,
-      rotation: (Math.random() - 0.5) * 0.4, // Small satisfying hand-placed feel
+      rotation: (Math.random() - 0.5) * 0.4,
       vx: 0, vy: 0, vr: 0
     });
 
     updateBalance();
   } else {
-    // Dropped in a completely wrong place -> collapses the pile immediately
+    // Sprouted out of bounds -> collapse trigger
     stickers.push({
-      type: activeDragSticker.type,
-      x: activeDragSticker.x,
-      y: activeDragSticker.y,
-      targetX: activeDragSticker.x,
-      targetY: activeDragSticker.y,
+      type: type,
+      x: mx,
+      y: my,
+      targetX: mx,
+      targetY: my,
       scale: 0.6,
       rotation: (Math.random() - 0.5) * 0.4,
       vx: 0, vy: 0, vr: 0
     });
     triggerCollapse();
   }
-
-  activeDragSticker = null;
 }
 
 function updateBalance() {
-  if (stickers.length === 0) {
-    updateGauge(50);
-    return;
-  }
+  if (stickers.length === 0) return;
 
   let sumX = 0;
   for (const s of stickers) {
@@ -672,28 +748,39 @@ function updateBalance() {
   const diffX = avgX - 756;
   const maxDev = 120; // Safe threshold
 
-  const pointerPercent = 50 + (diffX / maxDev) * 50;
-  updateGauge(pointerPercent);
+  if (!isCollapsing) {
+    containerAngle = (diffX / maxDev) * 15; // Max tilt 15 degrees before collapse
+  }
 
   // Balance collapse trigger
   if (Math.abs(diffX) > maxDev) {
-    triggerCollapse();
+    triggerCollapse(diffX);
   }
 }
 
-function updateGauge(percent) {
-  const pointer = document.getElementById('gaugePointer');
-  if (pointer) {
-    pointer.style.left = `${Math.max(0, Math.min(100, percent))}%`;
-  }
-}
-
-function triggerCollapse() {
+function triggerCollapse(diffX) {
   if (isCollapsing) return;
   isCollapsing = true;
+  activeDragSticker = null;
+
+  containerVy = -100; // Small jump
+  containerAngleVelocity = diffX > 0 ? 120 : -120; // Spin velocity
+
+  const originX = 756;
+  const originY = 312;
+  const angleRad = containerAngle * Math.PI / 180;
+  const cosA = Math.cos(angleRad);
+  const sinA = Math.sin(angleRad);
 
   for (const s of stickers) {
-    s.vx = (Math.random() - 0.5) * 300;
+    // Convert to world coordinates so they don't teleport when container detaches
+    const dx = s.x - originX;
+    const dy = s.y - originY;
+    s.x = originX + dx * cosA - dy * sinA;
+    s.y = originY + containerY + dx * sinA + dy * cosA;
+    s.rotation += angleRad;
+
+    s.vx = (Math.random() - 0.5) * 400 + (diffX > 0 ? 200 : -200);
     s.vy = -150 - Math.random() * 200; // Initial bounce
     s.vr = (Math.random() - 0.5) * 6;  // Spin speed
   }
@@ -701,60 +788,109 @@ function triggerCollapse() {
   collapseTimer = 0;
 }
 
-// Bind tray item triggers
-function initTrayEvents() {
-  document.querySelectorAll('.tray-item').forEach(item => {
-    item.addEventListener('mousedown', (e) => {
-      const type = item.getAttribute('data-type');
-      startDragging(type, e.clientX, e.clientY);
-    });
-    item.addEventListener('touchstart', (e) => {
-      const type = item.getAttribute('data-type');
-      startDragging(type, e.touches[0].clientX, e.touches[0].clientY);
-      e.preventDefault();
-    }, { passive: false });
-  });
-}
-
 // ─────────────────────────────────────────────
 //  Mouse/Touch Canvas interactions
 // ─────────────────────────────────────────────
-paperCanvas.addEventListener('mousemove', e => updateMousePos(e.clientX, e.clientY));
+paperCanvas.addEventListener('mousemove', e => {
+  updateMousePos(e.clientX, e.clientY);
+  updateCursorAffordance();
+});
+
 paperCanvas.addEventListener('mousedown', e => {
   mouse.down = true;
   updateMousePos(e.clientX, e.clientY);
-  handleColumnClick(mouse.x, mouse.y);
+  
+  if (!gameStarted) {
+    handleColumnClick(mouse.x, mouse.y);
+  } else if (gameOverResetReady) {
+    resetGame();
+  } else if (!isCollapsing) {
+    const type = getAssetTypeAt(mouse.x, mouse.y);
+    if (type) {
+      startDragging(type, e.clientX, e.clientY);
+    }
+  }
+  updateCursorAffordance();
 });
-paperCanvas.addEventListener('mouseup',   () => { mouse.down = false; });
-paperCanvas.addEventListener('touchmove',  e => { e.preventDefault(); updateMousePos(e.touches[0].clientX, e.touches[0].clientY); mouse.down = true; }, { passive: false });
-paperCanvas.addEventListener('touchstart', e => {
-  updateMousePos(e.touches[0].clientX, e.touches[0].clientY);
-  mouse.down = true;
-  handleColumnClick(mouse.x, mouse.y);
-});
-paperCanvas.addEventListener('touchend',   () => { mouse.down = false; });
 
-// Window level handlers for sticker drag-and-drop
-window.addEventListener('mousemove', (e) => {
-  updateMousePos(e.clientX, e.clientY);
+paperCanvas.addEventListener('mouseup', () => {
+  mouse.down = false;
+  activeDragSticker = null;
+  updateCursorAffordance();
+});
+
+paperCanvas.addEventListener('touchmove', e => {
+  updateMousePos(e.touches[0].clientX, e.touches[0].clientY);
   if (activeDragSticker) {
     activeDragSticker.x = mouse.x;
     activeDragSticker.y = mouse.y;
   }
-});
-window.addEventListener('touchmove', (e) => {
+  updateCursorAffordance();
+  e.preventDefault();
+}, { passive: false });
+
+paperCanvas.addEventListener('touchstart', e => {
+  mouse.down = true;
   updateMousePos(e.touches[0].clientX, e.touches[0].clientY);
+  
+  if (!gameStarted) {
+    handleColumnClick(mouse.x, mouse.y);
+  } else if (gameOverResetReady) {
+    resetGame();
+  } else if (!isCollapsing) {
+    const type = getAssetTypeAt(mouse.x, mouse.y);
+    if (type) {
+      startDragging(type, e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }
+  updateCursorAffordance();
+  e.preventDefault();
+}, { passive: false });
+
+paperCanvas.addEventListener('touchend', () => {
+  mouse.down = false;
+  activeDragSticker = null;
+  updateCursorAffordance();
+});
+
+// Window-level events to handle dragging smoothly beyond canvas bounds
+window.addEventListener('mousemove', (e) => {
   if (activeDragSticker) {
+    updateMousePos(e.clientX, e.clientY);
     activeDragSticker.x = mouse.x;
     activeDragSticker.y = mouse.y;
   }
 });
 window.addEventListener('mouseup', () => {
-  if (activeDragSticker) dropSticker();
+  activeDragSticker = null;
 });
-window.addEventListener('touchend', () => {
-  if (activeDragSticker) dropSticker();
-});
+
+// Update canvas cursor based on drag state and hovering targets
+function updateCursorAffordance() {
+  if (!gameStarted) {
+    paperCanvas.style.cursor = 'default';
+    return;
+  }
+  if (gameOverResetReady) {
+    paperCanvas.style.cursor = 'pointer';
+    return;
+  }
+  if (isCollapsing) {
+    paperCanvas.style.cursor = 'default';
+    return;
+  }
+  
+  if (activeDragSticker) {
+    paperCanvas.style.cursor = 'grabbing';
+  } else {
+    const type = getAssetTypeAt(mouse.x, mouse.y);
+    if (type) {
+      paperCanvas.style.cursor = 'grab';
+    } else {
+      paperCanvas.style.cursor = 'default';
+    }
+  }
+}
 
 // ─────────────────────────────────────────────
 //  Render loop
@@ -799,18 +935,41 @@ function animate(ts) {
   // Check Game Start state (both columns burned)
   if (clothLeft.isFullyBurned && clothRight.isFullyBurned && !gameStarted) {
     gameStarted = true;
-    const bgTitleSvg = document.getElementById('bgTitleSvg');
-    if (bgTitleSvg) {
-      bgTitleSvg.classList.remove('solid');
-      bgTitleSvg.classList.add('engraved');
+    // Delay engraving fade slightly (600ms) to prevent visual clutter at start
+    setTimeout(() => {
+      const bgTitleSvg = document.getElementById('bgTitleSvg');
+      if (bgTitleSvg) {
+        bgTitleSvg.classList.remove('solid');
+        bgTitleSvg.classList.add('engraved');
+      }
+    }, 600);
+  }
+
+  // Watering can (물조리개) sprout logic while holding mouse
+  if (activeDragSticker && mouse.down && gameStarted && !isCollapsing) {
+    const now = performance.now();
+    if (now - lastSproutTime > 150) { // sprout every 150ms
+      sproutSticker(activeDragSticker.type, activeDragSticker.x, activeDragSticker.y);
+      lastSproutTime = now;
     }
-    document.getElementById('balanceGauge').classList.remove('hidden');
-    document.getElementById('stickerTray').classList.remove('hidden');
   }
 
   // Physics update for collapse animation
   if (isCollapsing) {
     collapseTimer += dt;
+    
+    // Container Physics
+    containerVy += 650 * dt; // gravity
+    containerY += containerVy * dt;
+    containerAngle += containerAngleVelocity * dt;
+
+    const floorContainer = 350; // Floor level for the container
+    if (containerY > floorContainer) {
+      containerY = floorContainer;
+      containerVy = -containerVy * 0.25; // damp
+      containerAngleVelocity *= 0.6;
+    }
+
     for (const s of stickers) {
       s.vy += 650 * dt; // gravity
       s.x += s.vx * dt;
@@ -830,10 +989,34 @@ function animate(ts) {
       if (s.x > 1462) { s.x = 1462; s.vx = -s.vx * 0.5; }
     }
 
-    if (collapseTimer > 2.0 && !gameOverShown) {
-      gameOverShown = true;
-      document.getElementById('gameOverOverlay').classList.remove('hidden');
+    // Trigger Print mid-collapse (0.8 seconds) to capture dynamic splash action
+    if (collapseTimer > 0.8 && !hasPrinted) {
+      hasPrinted = true;
+      const qrContainer = document.getElementById('qrContainer');
+      if (qrContainer && typeof QRCode !== 'undefined' && !qrContainer.hasChildNodes()) {
+        new QRCode(qrContainer, {
+          text: "https://hannah-yoo.github.io/up/",
+          width: 250,
+          height: 250,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.L
+        });
+      }
+      window.print();
     }
+
+    // Set Game Over / reset ready state after collapse fully settles (2.2 seconds)
+    if (collapseTimer > 2.2 && !gameOverResetReady) {
+      gameOverResetReady = true;
+    }
+  }
+
+  // Apply tilt transform to the SVG container
+  const bgTitleSvg = document.getElementById('bgTitleSvg');
+  if (bgTitleSvg) {
+    bgTitleSvg.style.transform = `translateY(${containerY}px) rotate(${containerAngle}deg)`;
+    bgTitleSvg.style.transformOrigin = `center center`;
   }
 
   // Clear Canvas
@@ -857,6 +1040,15 @@ function animate(ts) {
       }
 
       ctx.save();
+      // Apply container tilt if not collapsed
+      if (!isCollapsing) {
+        const originX = 756;
+        const originY = 312;
+        ctx.translate(originX, originY + containerY);
+        ctx.rotate(containerAngle * Math.PI / 180);
+        ctx.translate(-originX, -originY);
+      }
+
       ctx.translate(s.x, s.y);
       ctx.rotate(s.rotation);
       const img = stickerImages[s.type];
@@ -895,38 +1087,30 @@ function resetGame() {
   stickers = [];
   activeDragSticker = null;
   isCollapsing = false;
-  gameOverShown = false;
+  gameOverResetReady = false;
+  hasPrinted = false;
   gameStarted = false;
+  containerAngle = 0;
+  containerY = 0;
+  containerVy = 0;
+  containerAngleVelocity = 0;
+
+  const qrContainer = document.getElementById('qrContainer');
+  if (qrContainer) qrContainer.innerHTML = '';
 
   const bgTitleSvg = document.getElementById('bgTitleSvg');
   if (bgTitleSvg) {
     bgTitleSvg.classList.remove('engraved');
     bgTitleSvg.classList.add('solid');
+    bgTitleSvg.style.transform = `translateY(0px) rotate(0deg)`;
   }
 
-  document.getElementById('balanceGauge').classList.add('hidden');
-  document.getElementById('stickerTray').classList.add('hidden');
-  document.getElementById('gameOverOverlay').classList.add('hidden');
-
-  updateGauge(50);
   buildCloths();
-}
-
-function initButtons() {
-  document.getElementById('printBtn').addEventListener('click', () => {
-    window.print();
-  });
-  document.getElementById('resetBtn').addEventListener('click', () => {
-    resetGame();
-  });
 }
 
 // ─────────────────────────────────────────────
 //  Boot
 // ─────────────────────────────────────────────
-initTrayEvents();
-initButtons();
-
 if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(() => {
     buildCloths();
